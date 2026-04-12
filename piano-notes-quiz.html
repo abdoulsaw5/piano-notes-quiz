@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Piano Notes Quiz</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    #app {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 2px 24px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 560px;
+      padding: 2rem 1.75rem;
+      min-height: 480px;
+    }
+
+    /* ── Home ── */
+    .home { text-align: center; padding: 1rem 0; }
+    .home h1 { font-size: 28px; font-weight: 600; color: #1a1a1a; margin-bottom: 0.5rem; }
+    .home .subtitle { font-size: 15px; color: #666; margin-bottom: 2.5rem; }
+
+    .mode-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px;
+    }
+    .mode-card {
+      background: #fff;
+      border: 1px solid #e0ddd6;
+      border-radius: 14px;
+      padding: 1.5rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+      text-align: center;
+    }
+    .mode-card:hover {
+      border-color: #534AB7;
+      transform: translateY(-3px);
+      box-shadow: 0 4px 16px rgba(83,74,183,0.12);
+    }
+    .mode-card .icon { font-size: 34px; margin-bottom: 12px; display: block; }
+    .mode-card h3 { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+    .mode-card p { font-size: 12px; color: #888; line-height: 1.5; }
+
+    /* ── Quiz header ── */
+    .quiz-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .back-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: #666;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .back-btn:hover { background: #f5f4f0; }
+    .quiz-title { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+    .progress-bar-wrap {
+      background: #ece9e0;
+      border-radius: 999px;
+      height: 6px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: #534AB7;
+      transition: width 0.3s ease;
+    }
+    .score-badge { font-size: 13px; color: #888; white-space: nowrap; }
+
+    /* ── Staff area ── */
+    .staff-area {
+      background: #fafaf8;
+      border: 1px solid #e8e5dc;
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .clef-label {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── Choices ── */
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .choice-btn {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 14px 8px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .choice-btn:hover:not(:disabled) {
+      border-color: #534AB7;
+      color: #534AB7;
+      background: #EEEDFE;
+    }
+    .choice-btn.correct {
+      background: #EAF3DE;
+      border-color: #639922;
+      color: #3B6D11;
+    }
+    .choice-btn.wrong {
+      background: #FCEBEB;
+      border-color: #A32D2D;
+      color: #791F1F;
+    }
+    .choice-btn:disabled { cursor: default; }
+
+    /* ── Feedback ── */
+    .feedback {
+      text-align: center;
+      font-size: 15px;
+      min-height: 24px;
+      margin-bottom: 1rem;
+      color: #888;
+      font-weight: 500;
+    }
+    .feedback.correct { color: #3B6D11; }
+    .feedback.wrong { color: #A32D2D; }
+
+    /* ── Next button ── */
+    .next-btn {
+      display: block;
+      width: 100%;
+      max-width: 260px;
+      margin: 0 auto;
+      background: #534AB7;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .next-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .next-btn:active { transform: translateY(0); }
+
+    /* ── Results ── */
+    .results { text-align: center; padding: 1rem 0; }
+    .results h2 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 0.4rem; }
+    .results .sub { font-size: 14px; color: #888; margin-top: 4px; }
+    .big-score {
+      font-size: 72px;
+      font-weight: 700;
+      color: #534AB7;
+      line-height: 1;
+      margin: 1.5rem 0;
+    }
+    .big-score span { font-size: 30px; color: #bbb; font-weight: 400; }
+
+    .missed {
+      background: #fafaf8;
+      border: 1px solid #e8e5dc;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem auto;
+      max-width: 380px;
+      text-align: left;
+    }
+    .missed h4 { font-size: 12px; color: #999; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .missed-notes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .missed-note {
+      background: #FCEBEB;
+      color: #791F1F;
+      border-radius: 8px;
+      padding: 5px 14px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 1.75rem;
+      flex-wrap: wrap;
+    }
+    .result-actions button {
+      border-radius: 10px;
+      padding: 11px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .result-actions button:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary { background: #534AB7; color: #fff; border: none; }
+    .btn-secondary { background: #fff; color: #1a1a1a; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    // Slot system: 0=bottom line, 0.5=first space, 1=second line, 2=middle line, etc.
+    // Negative slots = below staff, slots > 4 = above staff
+    // ledgers: array of slot values where ledger lines should be drawn
+
+    // TREBLE CLEF
+    // Lines (bottom to top): E G B D F  — "Every Good Boy Does Fine"
+    // Spaces (bottom to top): F A C E   — "FACE"
+    // Extra below: D (space), C/middle C (ledger line)
+    const TREBLE_NOTES = [
+      { name:'C', slot:-1,   ledgers:[-1] },   // middle C on ledger line below
+      { name:'D', slot:-0.5, ledgers:[-1] },   // D in space above middle C ledger
+      { name:'E', slot:0    },                  // line 1 (bottom)
+      { name:'F', slot:0.5  },                  // space 1
+      { name:'G', slot:1    },                  // line 2
+      { name:'A', slot:1.5  },                  // space 2
+      { name:'B', slot:2    },                  // line 3 (middle)
+      { name:'C', slot:2.5  },                  // space 3
+      { name:'D', slot:3    },                  // line 4
+      { name:'E', slot:3.5  },                  // space 4
+      { name:'F', slot:4    },                  // line 5 (top)
+    ];
+
+    // BASS CLEF
+    // Lines (bottom to top): G B D F A  — "Good Boys Do Fine Always"
+    // Spaces (bottom to top): A C E G   — "All Cows Eat Grass"
+    // Extra above: B (space), C/middle C (ledger line)
+    const BASS_NOTES = [
+      { name:'G', slot:0    },                  // line 1 (bottom)
+      { name:'A', slot:0.5  },                  // space 1
+      { name:'B', slot:1    },                  // line 2
+      { name:'C', slot:1.5  },                  // space 2
+      { name:'D', slot:2    },                  // line 3 (middle)
+      { name:'E', slot:2.5  },                  // space 3
+      { name:'F', slot:3    },                  // line 4
+      { name:'G', slot:3.5  },                  // space 4
+      { name:'A', slot:4    },                  // line 5 (top)
+      { name:'B', slot:4.5  },                  // space above top line
+      { name:'C', slot:5,    ledgers:[5] },     // middle C on ledger line above
+    ];
+
+    const NOTE_NAMES = ['C','D','E','F','G','A','B'];
+    const TOTAL = 10;
+
+    let state = {
+      page: 'home', mode: null, question: 0, score: 0, wrong: 0,
+      wrongNotes: [], currentNote: null, currentClef: null,
+      choices: [], answered: false, selectedAnswer: null,
+    };
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function pickNote(mode) {
+      if (mode === 'treble') return { ...TREBLE_NOTES[Math.floor(Math.random() * TREBLE_NOTES.length)], clef: 'treble' };
+      if (mode === 'bass')   return { ...BASS_NOTES[Math.floor(Math.random() * BASS_NOTES.length)], clef: 'bass' };
+      const isTreble = Math.random() < 0.5;
+      const pool = isTreble ? TREBLE_NOTES : BASS_NOTES;
+      return { ...pool[Math.floor(Math.random() * pool.length)], clef: isTreble ? 'treble' : 'bass' };
+    }
+
+    function makeChoices(correct) {
+      const wrong = NOTE_NAMES.filter(n => n !== correct);
+      shuffle(wrong);
+      return shuffle([correct, ...wrong.slice(0, 3)]);
+    }
+
+    function startGame(mode) {
+      const note = pickNote(mode);
+      state = {
+        page: 'quiz', mode, question: 1, score: 0, wrong: 0, wrongNotes: [],
+        currentNote: note, currentClef: note.clef,
+        choices: makeChoices(note.name), answered: false, selectedAnswer: null,
+      };
+      render();
+    }
+
+    function nextQuestion() {
+      if (state.question >= TOTAL) { state.page = 'results'; render(); return; }
+      const note = pickNote(state.mode);
+      state.question++;
+      state.currentNote = note;
+      state.currentClef = note.clef;
+      state.choices = makeChoices(note.name);
+      state.answered = false;
+      state.selectedAnswer = null;
+      render();
+    }
+
+    function answer(choice) {
+      if (state.answered) return;
+      state.answered = true;
+      state.selectedAnswer = choice;
+      if (choice === state.currentNote.name) state.score++;
+      else { state.wrong++; state.wrongNotes.push(state.currentNote.name); }
+      render();
+    }
+
+    function goHome() { state.page = 'home'; render(); }
+
+    function drawStaff(note, clef) {
+      const W = 280, GAP = 14, STAFF_TOP = 45;
+      const H = STAFF_TOP + GAP * 4 + 45;
+
+      // lineY(i): SVG y coordinate of staff line i (0=bottom, 4=top)
+      function lineY(i) { return STAFF_TOP + GAP * (4 - i); }
+
+      // slotY(slot): SVG y for a given slot value
+      function slotY(slot) { return lineY(0) - slot * GAP; }
+
+      const noteX = 160;
+      const lineColor = '#999';
+      const noteColor = '#534AB7';
+      const textColor = '#26215C';
+
+      const noteY = slotY(note.slot);
+
+      // Ledger lines
+      let ledgerSVG = '';
+      if (note.ledgers) {
+        note.ledgers.forEach(lslot => {
+          const ly = slotY(lslot);
+          ledgerSVG += `<line x1="${noteX - 11}" y1="${ly}" x2="${noteX + 11}" y2="${ly}" stroke="${lineColor}" stroke-width="1.2"/>`;
+        });
+      }
+
+      const clefSvg = clef === 'treble'
+        ? `<text x="28" y="${lineY(0) + 8}" font-size="68" fill="${textColor}" font-family="Georgia,serif" style="user-select:none">&#119070;</text>`
+        : `<text x="26" y="${lineY(2) + 6}" font-size="44" fill="${textColor}" font-family="Georgia,serif" style="user-select:none">&#119074;</text>`;
+
+      const staffLines = [0, 1, 2, 3, 4].map(i =>
+        `<line x1="18" y1="${lineY(i)}" x2="${W - 18}" y2="${lineY(i)}" stroke="${lineColor}" stroke-width="1"/>`
+      ).join('');
+
+      return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        ${staffLines}
+        ${clefSvg}
+        ${ledgerSVG}
+        <ellipse cx="${noteX}" cy="${noteY}" rx="7" ry="6" fill="${noteColor}" transform="rotate(-15,${noteX},${noteY})"/>
+      </svg>`;
+    }
+
+    function renderHome() {
+      return `
+        <div class="home">
+          <h1>&#127929; Piano Notes Quiz</h1>
+          <p class="subtitle">Choose a mode to begin. You'll get 10 questions each round.</p>
+          <div class="mode-cards">
+            <div class="mode-card" onclick="startGame('treble')">
+              <span class="icon">🤚</span>
+              <h3>Right hand</h3>
+              <p>Treble clef notes for melody playing</p>
+            </div>
+            <div class="mode-card" onclick="startGame('bass')">
+              <span class="icon">✋</span>
+              <h3>Left hand</h3>
+              <p>Bass clef notes for harmony and rhythm</p>
+            </div>
+            <div class="mode-card" onclick="startGame('both')">
+              <span class="icon">🎵</span>
+              <h3>Both hands</h3>
+              <p>Mixed treble and bass clef challenge</p>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderQuiz() {
+      const n = state.currentNote;
+      const clef = state.currentClef;
+      const clefLabel = clef === 'treble' ? 'Treble clef — right hand' : 'Bass clef — left hand';
+      const modeName = state.mode === 'treble' ? 'Right hand' : state.mode === 'bass' ? 'Left hand' : 'Both hands';
+      const progress = ((state.question - 1) / TOTAL) * 100;
+
+      const choiceButtons = state.choices.map(c => {
+        let cls = 'choice-btn';
+        if (state.answered) {
+          if (c === n.name) cls += ' correct';
+          else if (c === state.selectedAnswer) cls += ' wrong';
+        }
+        return `<button class="${cls}" onclick="answer('${c}')" ${state.answered ? 'disabled' : ''}>${c}</button>`;
+      }).join('');
+
+      let fb = '', fbCls = 'feedback';
+      if (state.answered) {
+        if (state.selectedAnswer === n.name) { fb = 'Correct!'; fbCls += ' correct'; }
+        else { fb = `The note was ${n.name}`; fbCls += ' wrong'; }
+      }
+
+      const nextLabel = state.question >= TOTAL ? 'See results' : 'Next note →';
+
+      return `
+        <div class="quiz-header">
+          <button class="back-btn" onclick="goHome()">← Home</button>
+          <span class="quiz-title">${modeName}</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${progress}%"></div></div>
+          <span class="score-badge">${state.question}/${TOTAL}</span>
+        </div>
+        <div class="staff-area">
+          <div class="clef-label">${clefLabel}</div>
+          ${drawStaff(n, clef)}
+        </div>
+        <div class="choices">${choiceButtons}</div>
+        <div class="${fbCls}">${fb}</div>
+        ${state.answered ? `<button class="next-btn" onclick="nextQuestion()">${nextLabel}</button>` : ''}`;
+    }
+
+    function renderResults() {
+      const modeName = state.mode === 'treble' ? 'Right hand' : state.mode === 'bass' ? 'Left hand' : 'Both hands';
+      const pct = Math.round((state.score / TOTAL) * 100);
+      const msg = pct === 100 ? 'Perfect score! 🎉' : pct >= 70 ? 'Great job! 👏' : pct >= 40 ? 'Keep practicing! 💪' : "You'll get there! 🎹";
+
+      let missedHtml = '';
+      if (state.wrongNotes.length > 0) {
+        const unique = [...new Set(state.wrongNotes)];
+        missedHtml = `<div class="missed">
+          <h4>Notes to review</h4>
+          <div class="missed-notes">${unique.map(n => `<span class="missed-note">${n}</span>`).join('')}</div>
+        </div>`;
+      }
+
+      return `
+        <div class="results">
+          <h2>${msg}</h2>
+          <p class="sub">${modeName} &middot; ${state.wrong} wrong out of ${TOTAL}</p>
+          <div class="big-score">${state.score}<span>/${TOTAL}</span></div>
+          ${missedHtml}
+          <div class="result-actions">
+            <button class="btn-primary" onclick="startGame('${state.mode}')">Play again</button>
+            <button class="btn-secondary" onclick="goHome()">Change mode</button>
+          </div>
+        </div>`;
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      if (state.page === 'home') app.innerHTML = renderHome();
+      else if (state.page === 'quiz') app.innerHTML = renderQuiz();
+      else if (state.page === 'results') app.innerHTML = renderResults();
+    }
+
+    render();
+  </script>
+</body>
+</html>
