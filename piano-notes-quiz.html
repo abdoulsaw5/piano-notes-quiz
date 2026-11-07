@@ -226,6 +226,57 @@
     .result-actions button:hover { opacity: 0.9; transform: translateY(-1px); }
     .btn-primary { background: #534AB7; color: #fff; border: none; }
     .btn-secondary { background: #fff; color: #1a1a1a; border: 1px solid #ddd; }
+    .btn-drag { background: #EEEDFE; color: #534AB7; border: 1px solid #534AB7; }
+
+    /* ── Drag and drop mode ── */
+    .drag-prompt {
+      text-align: center;
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 1rem;
+    }
+    .drag-prompt .target-letter {
+      display: inline-block;
+      min-width: 38px;
+      margin-left: 6px;
+      padding: 2px 12px;
+      border-radius: 10px;
+      background: #EEEDFE;
+      color: #534AB7;
+      font-size: 24px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .drag-tray {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      min-height: 72px;
+      margin-bottom: 1rem;
+      background: #fafaf8;
+      border: 1.5px dashed #d6d2c6;
+      border-radius: 14px;
+      color: #aaa;
+      font-size: 13px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .drag-note {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      cursor: grab;
+      touch-action: none;
+      position: relative;
+      z-index: 1;
+    }
+    .drag-note:hover { background: #EEEDFE; }
+    .drag-note.dragging { cursor: grabbing; z-index: 50; background: transparent; }
+    .drag-note.dragging svg { filter: drop-shadow(0 3px 5px rgba(83,74,183,0.35)); }
   </style>
 </head>
 <body>
@@ -444,7 +495,8 @@
     }
 
     function renderResults() {
-      const modeName = state.mode === 'treble' ? 'Right hand' : state.mode === 'bass' ? 'Left hand' : 'Both hands';
+      const isDrag = state.page === 'dragResults';
+      const modeName = (state.mode === 'treble' ? 'Right hand' : state.mode === 'bass' ? 'Left hand' : 'Both hands') + (isDrag ? ' · Drag and drop' : '');
       const pct = Math.round((state.score / TOTAL) * 100);
       const msg = pct === 100 ? 'Perfect score! 🎉' : pct >= 70 ? 'Great job! 👏' : pct >= 40 ? 'Keep practicing! 💪' : "You'll get there! 🎹";
 
@@ -464,17 +516,213 @@
           <div class="big-score">${state.score}<span>/${TOTAL}</span></div>
           ${missedHtml}
           <div class="result-actions">
-            <button class="btn-primary" onclick="startGame('${state.mode}')">Play again</button>
-            <button class="btn-secondary" onclick="goHome()">Change mode</button>
+            ${isDrag
+              ? `<button class="btn-primary" onclick="startDrag('${state.mode}')">Play again</button>
+                 <button class="btn-secondary" onclick="goHome()">Change mode</button>
+                 <button class="btn-drag" onclick="startGame('${state.mode}')">Letter quiz</button>`
+              : `<button class="btn-primary" onclick="startGame('${state.mode}')">Play again</button>
+                 <button class="btn-secondary" onclick="goHome()">Change mode</button>
+                 <button class="btn-drag" onclick="startDrag('${state.mode}')">Drag and drop</button>`}
           </div>
         </div>`;
+    }
+
+    // ── Drag and drop mode ──────────────────────────────────────────
+    // Same staff geometry as drawStaff(), shared so slots line up exactly.
+    const DG = { W: 280, GAP: 14, TOP: 45, NOTE_X: 160 };
+    DG.H = DG.TOP + DG.GAP * 4 + 45;
+    const dgLineY = i => DG.TOP + DG.GAP * (4 - i);
+    const dgSlotY = slot => dgLineY(0) - slot * DG.GAP;
+    const dgPool = clef => clef === 'treble' ? TREBLE_NOTES : BASS_NOTES;
+
+    function startDrag(mode) {
+      const note = pickNote(mode);
+      state = {
+        page: 'drag', mode, question: 1, score: 0, wrong: 0, wrongNotes: [],
+        currentNote: note, currentClef: note.clef,
+        answered: false, dragPlaced: null, dragCorrect: null,
+      };
+      render();
+    }
+
+    function nextDrag() {
+      if (state.question >= TOTAL) { state.page = 'dragResults'; render(); return; }
+      const note = pickNote(state.mode);
+      state.question++;
+      state.currentNote = note;
+      state.currentClef = note.clef;
+      state.answered = false;
+      state.dragPlaced = null;
+      state.dragCorrect = null;
+      render();
+    }
+
+    function dropNote(placedNote) {
+      if (state.answered) return;
+      state.answered = true;
+      state.dragPlaced = placedNote;
+      state.dragCorrect = placedNote.name === state.currentNote.name;
+      if (state.dragCorrect) state.score++;
+      else { state.wrong++; state.wrongNotes.push(state.currentNote.name); }
+      render();
+    }
+
+    function drawDragStaff(clef) {
+      const lineColor = '#999';
+      const textColor = '#26215C';
+      const ok = '#639922', bad = '#A32D2D', main = '#534AB7';
+      const x = DG.NOTE_X;
+      const ledger = n => (n.ledgers || []).map(l =>
+        `<line x1="${x - 11}" y1="${dgSlotY(l)}" x2="${x + 11}" y2="${dgSlotY(l)}" stroke="${lineColor}" stroke-width="1.2"/>`
+      ).join('');
+
+      const staffLines = [0, 1, 2, 3, 4].map(i =>
+        `<line x1="18" y1="${dgLineY(i)}" x2="${DG.W - 18}" y2="${dgLineY(i)}" stroke="${lineColor}" stroke-width="1"/>`
+      ).join('');
+
+      const clefSvg = clef === 'treble'
+        ? `<text x="28" y="${dgLineY(0) + 8}" font-size="68" fill="${textColor}" font-family="Georgia,serif" style="user-select:none">&#119070;</text>`
+        : `<text x="26" y="${dgLineY(2) + 6}" font-size="44" fill="${textColor}" font-family="Georgia,serif" style="user-select:none">&#119074;</text>`;
+
+      let placedSvg = '', hintSvg = '';
+      if (state.answered && state.dragPlaced) {
+        const p = state.dragPlaced;
+        placedSvg = ledger(p) +
+          `<ellipse cx="${x}" cy="${dgSlotY(p.slot)}" rx="7" ry="6" fill="${state.dragCorrect ? ok : bad}" transform="rotate(-15,${x},${dgSlotY(p.slot)})"/>`;
+        if (!state.dragCorrect) {
+          // Show every spot where the asked-for letter lives on this clef
+          hintSvg = dgPool(clef).filter(n => n.name === state.currentNote.name).map(n =>
+            ledger(n) +
+            `<ellipse cx="${x + 30}" cy="${dgSlotY(n.slot)}" rx="7" ry="6" fill="none" stroke="${ok}" stroke-width="2" stroke-dasharray="3 2" transform="rotate(-15,${x + 30},${dgSlotY(n.slot)})"/>`
+          ).join('');
+        }
+      }
+
+      const ghost = `<g id="dragGhost" opacity="0">
+          <line id="dragGhostLedger" x1="${x - 11}" x2="${x + 11}" y1="0" y2="0" stroke="${lineColor}" stroke-width="1.2" opacity="0"/>
+          <ellipse id="dragGhostNote" cx="${x}" cy="0" rx="7" ry="6" fill="${main}" transform=""/>
+        </g>`;
+
+      return `<svg id="dragStaff" width="${DG.W}" height="${DG.H}" viewBox="0 0 ${DG.W} ${DG.H}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+        ${staffLines}
+        ${clefSvg}
+        ${placedSvg}
+        ${hintSvg}
+        ${ghost}
+      </svg>`;
+    }
+
+    function renderDrag() {
+      const n = state.currentNote;
+      const clef = state.currentClef;
+      const clefLabel = clef === 'treble' ? 'Treble clef — right hand' : 'Bass clef — left hand';
+      const modeName = state.mode === 'treble' ? 'Right hand' : state.mode === 'bass' ? 'Left hand' : 'Both hands';
+      const progress = ((state.question - 1) / TOTAL) * 100;
+
+      let fb = '', fbCls = 'feedback';
+      if (state.answered) {
+        if (state.dragCorrect) { fb = `Correct! That spot is ${n.name}`; fbCls += ' correct'; }
+        else { fb = `That spot is ${state.dragPlaced.name}. ${n.name} is shown in green`; fbCls += ' wrong'; }
+      }
+
+      const nextLabel = state.question >= TOTAL ? 'See results' : 'Next note →';
+
+      const tray = state.answered
+        ? `<div class="drag-tray"></div>`
+        : `<div class="drag-tray">
+             <div class="drag-note" id="dragNote" title="Drag me onto the staff">
+               <svg width="30" height="26" viewBox="0 0 30 26"><ellipse cx="15" cy="13" rx="10" ry="8" fill="#534AB7" transform="rotate(-15,15,13)"/></svg>
+             </div>
+             <span>drag the note onto the staff</span>
+           </div>`;
+
+      return `
+        <div class="quiz-header">
+          <button class="back-btn" onclick="goHome()">← Home</button>
+          <span class="quiz-title">${modeName} · Drag</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${progress}%"></div></div>
+          <span class="score-badge">${state.question}/${TOTAL}</span>
+        </div>
+        <div class="staff-area">
+          <div class="clef-label">${clefLabel}</div>
+          ${drawDragStaff(clef)}
+        </div>
+        <div class="drag-prompt">Drag the note to the line or space for <span class="target-letter">${n.name}</span></div>
+        ${tray}
+        <div class="${fbCls}">${fb}</div>
+        ${state.answered ? `<button class="next-btn" onclick="nextDrag()">${nextLabel}</button>` : ''}`;
+    }
+
+    // Which staff position (from the clef's note list) is the dragged note sitting on?
+    function slotFromChip(chip, svg) {
+      const r = chip.getBoundingClientRect();
+      const s = svg.getBoundingClientRect();
+      const scale = s.width / DG.W;
+      const px = (r.left + r.width / 2 - s.left) / scale;
+      const py = (r.top + r.height / 2 - s.top) / scale;
+      if (px < 18 || px > DG.W - 18 || py < 0 || py > DG.H) return null;
+      const slot = Math.round(((dgLineY(0) - py) / DG.GAP) * 2) / 2;
+      return dgPool(state.currentClef).find(n => n.slot === slot) || null;
+    }
+
+    function updateGhost(hit) {
+      const g = document.getElementById('dragGhost');
+      if (!g) return;
+      if (!hit) { g.setAttribute('opacity', '0'); return; }
+      const y = dgSlotY(hit.slot);
+      const note = document.getElementById('dragGhostNote');
+      note.setAttribute('cy', y);
+      note.setAttribute('transform', `rotate(-15,${DG.NOTE_X},${y})`);
+      const led = document.getElementById('dragGhostLedger');
+      if (hit.ledgers) {
+        const ly = dgSlotY(hit.ledgers[0]);
+        led.setAttribute('y1', ly); led.setAttribute('y2', ly); led.setAttribute('opacity', '1');
+      } else {
+        led.setAttribute('opacity', '0');
+      }
+      g.setAttribute('opacity', '0.45');
+    }
+
+    function setupDrag() {
+      const chip = document.getElementById('dragNote');
+      const svg = document.getElementById('dragStaff');
+      if (!chip || !svg) return;
+      let startX = 0, startY = 0, dragging = false;
+
+      const reset = () => {
+        dragging = false;
+        chip.classList.remove('dragging');
+        chip.style.transform = '';
+        updateGhost(null);
+      };
+
+      chip.addEventListener('pointerdown', e => {
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        chip.setPointerCapture(e.pointerId);
+        chip.classList.add('dragging');///
+        e.preventDefault();
+      });
+      chip.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        chip.style.transform = `translate(${e.clientX - startX}px, ${e.clientY - startY}px)`;
+        updateGhost(slotFromChip(chip, svg));
+      });
+      chip.addEventListener('pointerup', () => {
+        if (!dragging) return;
+        const hit = slotFromChip(chip, svg);
+        if (!hit) { reset(); return; }   // dropped off the staff: snap back, no penalty
+        dropNote(hit);
+      });
+      chip.addEventListener('pointercancel', reset);
     }
 
     function render() {
       const app = document.getElementById('app');
       if (state.page === 'home') app.innerHTML = renderHome();
       else if (state.page === 'quiz') app.innerHTML = renderQuiz();
-      else if (state.page === 'results') app.innerHTML = renderResults();
+      else if (state.page === 'results' || state.page === 'dragResults') app.innerHTML = renderResults();
+      else if (state.page === 'drag') { app.innerHTML = renderDrag(); setupDrag(); }
     }
 
     render();
