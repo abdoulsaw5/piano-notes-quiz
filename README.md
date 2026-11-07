@@ -32,3 +32,9 @@ I was learning piano and looking for something more hands on. I learn better by 
 ## Tech
 
 I will host the site at https://piano-notes-quiz.netlify.app which is for easy access also you are able to download the html directly to your desktop.
+
+## Updates
+
+| Date | What was added |
+|------|----------------|
+| November 7, 2026 | Added a **Drag and drop** round. After finishing the 10 letter questions, a new Drag and drop button appears on the results screen. Instead of picking the note name, you drag the note onto the correct line or space on the staff. Works for right hand, left hand, and both hands. |
