@@ -6,7 +6,7 @@ An interactive web-based game to help you learn how to read piano sheet music. B
 ## Why I built this
 
 I was learning piano and looking for something more hands on. I learn better by quizzing and challenging myself rather than just reading so instead of staring at a chart of notes, I built this so I could actually practice them interactively. It helped me so much that I decided to turn it into a project others could use too.
-
+https://github.com/user-attachments/assets/a9e75988-9445-4e87-9026-a75ba8938c63
 ## What it does
 
 - Shows a note on a musical staff and asks you to identify it
