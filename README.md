@@ -9,7 +9,7 @@ I was learning piano and looking for something more hands on. I learn better by 
 
 ## Demo 
 A video of me playing experience 😁😁 
-<video src="https://github.com/user-attachments/assets/a9e75988-9445-4e87-9026-a75ba8938c63" controls muted width="720"></video>
+<video src="" controls muted width="720"></video>
 
 ## What it does
 
